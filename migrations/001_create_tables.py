@@ -18,7 +18,7 @@ from sqlalchemy import create_engine, text  # noqa: E402
 from app.config.settings import load_config  # noqa: E402
 
 
-def build_ddl(schema: str) -> list[str]:
+def build_ddl(schema: str) -> str:
     """构造完整 DDL 语句列表（每条以分号结尾，按 ; 分割执行）。"""
     s = schema
     raw = f"""

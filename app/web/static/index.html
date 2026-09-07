@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>声准 · 外呼话术评判平台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#calls"><span class="brand-icon">声</span><span>声准<span class="brand-sub">SPEECH QUALITY</span></span></a>
+    <div class="workspace-label">外呼话术评判平台 <span class="version">LOCAL</span></div>
+    <nav aria-label="主导航">
+      <p class="nav-label">质检工作区</p>
+      <button data-view="calls" class="nav-item active"><span class="nav-icon">◉</span> 通话质检 <span class="nav-arrow">›</span></button>
+      <button data-view="tasks" class="nav-item"><span class="nav-icon">▤</span> 任务与结果</button>
+      <p class="nav-label spaced">参数管理</p>
+      <button data-view="scenes" class="nav-item"><span class="nav-icon">▦</span> 营销场景</button>
+      <button data-view="rules" class="nav-item"><span class="nav-icon">≡</span> 话术规则</button>
+      <button data-view="bindings" class="nav-item"><span class="nav-icon">⇄</span> 场景规则关联</button>
+    </nav>
+    <div class="sidebar-bottom"><span class="pulse-dot"></span><div>本地工作台<small>数据连接公司内部服务</small></div></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div><span class="breadcrumb">工作区</span><span class="slash">/</span><span id="breadcrumb">通话质检</span></div><button id="connection" class="connection" title="点击重新检查数据库">○ 检查连接中</button></header>
+    <main>
+      <div id="connection-error" class="notice danger hidden" role="alert"></div>
+      <div id="demo-banner" class="notice hidden">离线演示模式 · 所有通话均为虚构数据，ASR / LLM 为模拟响应。配置只保存在临时库，服务退出即清除。</div>
+      <div class="page-heading"><div><p class="eyebrow" id="eyebrow">CALL QUALITY REVIEW</p><h1 id="page-title">让每一通沟通，都有据可评</h1><p id="page-description" class="muted">筛选通话、选择录音，一站完成话术合规评判。</p></div><span class="page-tag" id="page-tag">人工选择 · 自动评判</span></div>
+      <section id="view-calls">
+        <div class="metrics"><article><span class="metric-icon lavender">◉</span><div><p>本页通话</p><strong id="metric-calls">—</strong><small> 条</small></div></article><article><span class="metric-icon mint">✓</span><div><p>符合质检资格</p><strong id="metric-qualified">—</strong><small> 条</small></div></article><article><span class="metric-icon peach">▧</span><div><p>已选择录音</p><strong id="metric-selected">0</strong><small> 条</small></div></article><article><span class="metric-icon blue">⇄</span><div><p>质检标准</p><strong id="metric-threshold">—</strong><small> 分及格</small></div></article></div>
+        <section class="panel"><div class="panel-heading"><h2>筛选通话</h2><span class="muted small">通话日期包含首尾两天 · 单次最多 32 天</span></div>
+          <form id="call-filter" class="filters">
+            <label>开始日期<input type="date" name="start" required></label><label>结束日期<input type="date" name="end" required></label>
+            <label>营销场景 ID<input name="scene" placeholder="全部场景" maxlength="64"></label><label>坐席 ID<input name="seat" placeholder="全部坐席" maxlength="64"></label>
+            <div class="filter-actions"><button type="submit" class="primary">⌕ 查询通话</button></div>
+            <div class="filter-foot"><label class="check"><input type="checkbox" name="only_qualifiable" checked> 仅显示符合质检资格的通话</label><span id="gate-hint" class="muted small">已接通 · 有录音 · 达到最短时长</span></div>
+          </form>
+        </section>
+        <section class="panel"><div class="panel-heading"><div class="inline"><h2>通话记录</h2><span class="count" id="call-count">尚未查询</span></div><span class="muted small">翻页或重新查询后需重新选择</span></div>
+          <div class="table-wrap"><table><thead><tr><th class="check-cell"><input type="checkbox" id="select-all" aria-label="选择本页可评判通话"></th><th>通话 / 订单</th><th>营销场景</th><th>坐席</th><th>通话时长</th><th>质检状态</th><th>操作</th></tr></thead><tbody id="calls-body"><tr><td colspan="7"><div class="empty"><span>⌕</span><h3>先找到需要评判的通话</h3><p>选择日期与筛选条件，点击「查询通话」。</p></div></td></tr></tbody></table></div>
+          <div class="table-footer"><span id="calls-page-label" class="muted small">录音 URL 由服务器读取，号码已脱敏</span><div class="inline"><button id="calls-prev" disabled>上一页</button><button id="calls-next" disabled>下一页</button></div></div>
+        </section>
+        <div class="run-bar"><div><strong>已选择 <span id="selection-count">0</span> 条通话</strong><p>下载录音 <span>→</span> ASR 转写 <span>→</span> 规则评判 <span>→</span> 结果入库</p></div><button id="run-selected" class="primary" disabled>▷ 开始评判</button></div>
+      </section>
+      <section id="view-tasks" class="hidden">
+        <div class="section-title"><h2>本次服务运行的批次</h2><div class="inline"><span class="muted small">每 3 秒刷新 · 关闭页面后继续执行</span><button id="refresh-tasks">↻ 刷新</button></div></div>
+        <div id="jobs-list"></div>
+        <section class="panel"><div class="panel-heading"><div class="inline"><h2>历史任务</h2><span class="count" id="task-count">—</span></div><label class="inline small">任务状态<select id="task-status"><option value="">全部状态</option><option value="COMPLETED">已完成</option><option value="REVIEW_REQUIRED">待复核</option><option value="FAILED">执行失败</option><option value="SKIPPED">已跳过</option><option value="PENDING">待执行</option><option value="ASR_PROCESSING">ASR 转写中</option><option value="LLM_PROCESSING">LLM 评判中</option></select></label></div>
+          <div class="table-wrap"><table><thead><tr><th>任务 / 创建时间</th><th>营销场景</th><th>坐席</th><th>执行阶段</th><th>评判结果</th><th>操作</th></tr></thead><tbody id="tasks-body"></tbody></table></div>
+          <div class="table-footer"><span id="tasks-page-label" class="muted small"></span><div class="inline"><button id="tasks-prev">上一页</button><button id="tasks-next">下一页</button></div></div>
+        </section>
+      </section>
+      <section id="view-admin" class="hidden"><div class="notice" id="admin-help"></div><section class="panel"><div class="panel-heading"><div class="inline"><h2 id="admin-title">营销场景</h2><span class="count" id="admin-count">—</span></div><button id="add-record" class="primary">＋ 新增</button></div><form id="admin-filter" class="admin-filter"><input id="admin-search" placeholder="搜索名称或编号" maxlength="200" aria-label="搜索名称或编号"><button type="submit">⌕ 搜索</button></form><div class="table-wrap"><table><thead id="admin-head"></thead><tbody id="admin-body"></tbody></table></div><div class="table-footer"><span id="admin-page-label" class="muted small"></span><div class="inline"><button id="admin-prev">上一页</button><button id="admin-next">下一页</button></div></div></section></section>
+      <footer class="main-footer"><span>声准 / 外呼话术评判平台</span><span>规则驱动 · 证据可溯 · 程序评分</span></footer>
+    </main>
+  </div>
+  <dialog id="editor" aria-labelledby="editor-title"><form id="editor-form"><div class="dialog-heading"><div><p class="eyebrow">PARAMETER EDITOR</p><h2 id="editor-title"></h2></div><button type="button" class="icon-button" data-close="editor" aria-label="关闭">×</button></div><div id="editor-fields" class="form-grid"></div><p id="editor-error" class="form-error" role="alert"></p><div class="dialog-footer"><button type="button" data-close="editor">取消</button><button type="submit" class="primary">保存配置</button></div></form></dialog>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><div class="dialog-heading"><h2 id="delete-title">删除这条配置？</h2></div><p id="delete-description"></p><p class="muted small">此操作会删除当前配置。需要暂时停止使用时，可改为编辑并停用。</p><p id="delete-error" class="form-error" role="alert"></p><div class="dialog-footer"><button data-close="delete-dialog">取消</button><button id="confirm-delete" class="destructive">确认删除</button></div></dialog>
+  <dialog id="detail" class="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><p class="eyebrow">QUALITY REPORT</p><h2 id="detail-title">评判明细</h2></div><button class="icon-button" data-close="detail" aria-label="关闭">×</button></div><div id="detail-content"></div></dialog>
+  <div id="toast" class="toast hidden" role="status"></div>
+</body>
+</html>

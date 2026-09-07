@@ -36,7 +36,8 @@ asr:
   max_retries: 2
 
 recording:
-  tmp_root: /data/speech_qc/tmp
+  # 相对路径在项目根目录启动时生效，兼容 Windows / Linux
+  tmp_root: temp/recordings
   download_timeout_seconds: 60
   max_retries: 2
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import threading
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, URL
 
 from ..adapters.asr_adapter import AsrAdapter
 from ..adapters.recording_adapter import RecordingAdapter
@@ -26,11 +26,13 @@ from ..services.scoring_service import ScoringService
 
 
 def build_engine(settings: Settings) -> Engine:
-    dsn = (
-        f"postgresql://{settings.db_username}:{settings.db_password}"
-        f"@{settings.db_host}:{settings.db_port}/{settings.db_name}"
-    )
-    return create_engine(dsn, pool_pre_ping=True)
+    dsn = URL.create("postgresql+psycopg2", username=settings.db_username,
+                     password=settings.db_password, host=settings.db_host,
+                     port=settings.db_port, database=settings.db_name)
+    # 处理带 @/: 的密码，并为工作线程的通话互斥锁预留独立连接。
+    return create_engine(dsn, pool_pre_ping=True, pool_size=5,
+                         max_overflow=max(20, settings.task_workers * 2),
+                         connect_args={"connect_timeout": 5})
 
 
 def build_asr_semaphore(settings: Settings) -> threading.Semaphore:

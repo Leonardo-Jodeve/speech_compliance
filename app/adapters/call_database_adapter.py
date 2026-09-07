@@ -85,6 +85,8 @@ class CallDatabaseAdapter:
             pass
         elif isinstance(start_time, _dt.date):
             start_time = _dt.datetime.combine(start_time, _dt.time.min)
+        elif isinstance(start_time, str):
+            start_time = _dt.datetime.fromisoformat(start_time)
         else:
             start_time = None
 
@@ -148,6 +150,7 @@ class CallDatabaseAdapter:
         limit: int | None = None,
         *,
         only_qualifiable: bool = True,
+        offset: int = 0,
     ) -> list[CallRecord]:
         """增量查询通话记录（手册 #12/#45）。
 
@@ -190,11 +193,16 @@ class CallDatabaseAdapter:
         sql_text = (
             f"SELECT {_BASE_COLUMNS} "
             f"FROM {self._source_schema}.{self._source_table} "
-            f"WHERE {where_sql}"
+            f"WHERE {where_sql} "
+            "ORDER BY CAST(start_date AS timestamp) DESC, CAST(order_id AS TEXT), "
+            "CAST(host_call_nbr AS TEXT), CAST(guest_called_nbr AS TEXT)"
         )
         if limit is not None:
             sql_text += " LIMIT :limit"
             params["limit"] = int(limit)
+        if offset:
+            sql_text += " OFFSET :offset"
+            params["offset"] = int(offset)
 
         logger.info(
             "query_calls start=%s end=%s scenes=%s seats=%s limit=%s only_qualifiable=%s",

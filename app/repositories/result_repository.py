@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+from contextlib import nullcontext
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -37,9 +38,13 @@ class TranscriptRepository:
     ) -> int:
         sql = text(
             f"""
-            INSERT INTO {self._schema}.qc_transcript
+            INSERT INTO {self._schema + '.' if self._schema else ''}qc_transcript
                 (task_id, source_call_key, asr_file_id, transcript_text, raw_answer)
             VALUES (:task_id, :source_call_key, :asr_file_id, :transcript_text, :raw_answer)
+            ON CONFLICT (task_id) DO UPDATE SET
+                asr_file_id=EXCLUDED.asr_file_id,
+                transcript_text=EXCLUDED.transcript_text,
+                raw_answer=EXCLUDED.raw_answer
             RETURNING id
             """
         )
@@ -61,10 +66,10 @@ class ResultRepository:
         self._engine = engine
         self._schema = schema
 
-    def save_result(self, result: ComplianceResult, task_id: int) -> int:
+    def save_result(self, result: ComplianceResult, task_id: int, *, connection=None) -> int:
         sql = text(
             f"""
-            INSERT INTO {self._schema}.qc_result
+            INSERT INTO {self._schema + '.' if self._schema else ''}qc_result
                 (task_id, source_call_key, scene_id, scene_name,
                  seat_id, seat_name, score, overall_status,
                  total_rules, passed_rules, failed_rules, review_rules, not_applicable_rules,
@@ -73,11 +78,16 @@ class ResultRepository:
                 (:task_id, :source_call_key, :scene_id, :scene_name,
                  :seat_id, :seat_name, :score, :overall_status,
                  :total_rules, :passed_rules, :failed_rules, :review_rules, :not_applicable_rules,
-                 :summary)
+                :summary)
+            ON CONFLICT (task_id) DO UPDATE SET
+                score=EXCLUDED.score, overall_status=EXCLUDED.overall_status,
+                total_rules=EXCLUDED.total_rules, passed_rules=EXCLUDED.passed_rules,
+                failed_rules=EXCLUDED.failed_rules, review_rules=EXCLUDED.review_rules,
+                not_applicable_rules=EXCLUDED.not_applicable_rules, summary=EXCLUDED.summary
             RETURNING id
             """
         )
-        with self._engine.begin() as conn:
+        with (nullcontext(connection) if connection is not None else self._engine.begin()) as conn:
             row = conn.execute(sql, {
                 "task_id": task_id,
                 "source_call_key": result.source_call_key,
@@ -96,9 +106,7 @@ class ResultRepository:
             }).one()
         return row.id
 
-    def save_rule_results(self, result_id: int, evaluations: list[RuleEvaluation]) -> None:
-        if not evaluations:
-            return
+    def save_rule_results(self, result_id: int, evaluations: list[RuleEvaluation], *, connection=None) -> None:
         rows = [
             (
                 result_id,
@@ -117,7 +125,7 @@ class ResultRepository:
         ]
         sql = text(
             f"""
-            INSERT INTO {self._schema}.qc_rule_result
+            INSERT INTO {self._schema + '.' if self._schema else ''}qc_rule_result
                 (result_id, rule_code, rule_name, rule_type, severity, weight,
                  status, confidence, reason, evidence_json, evidence_verified)
             VALUES
@@ -125,7 +133,8 @@ class ResultRepository:
                  :status, :confidence, :reason, :evidence_json, :evidence_verified)
             """
         )
-        with self._engine.begin() as conn:
+        with (nullcontext(connection) if connection is not None else self._engine.begin()) as conn:
+            conn.execute(text(f"DELETE FROM {self._schema + '.' if self._schema else ''}qc_rule_result WHERE result_id=:id"), {"id": result_id})
             for r in rows:
                 conn.execute(sql, {
                     "result_id": r[0],
@@ -140,3 +149,10 @@ class ResultRepository:
                     "evidence_json": r[9],
                     "evidence_verified": r[10],
                 })
+
+    def save_with_rules(self, result: ComplianceResult, task_id: int) -> int:
+        """总体结果与逐规则证据在同一事务中保存，失败重试不留下半份结果。"""
+        with self._engine.begin() as conn:
+            result_id = self.save_result(result, task_id, connection=conn)
+            self.save_rule_results(result_id, result.rule_results, connection=conn)
+        return result_id

@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import time
+import hashlib
 
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from ..adapters.asr_adapter import AsrAdapter
@@ -90,6 +92,25 @@ class ComplianceTaskService:
 
     def process_call(self, call: CallRecord) -> ComplianceResult:
         """处理单通通话（手册 #41）。返回完整结果，同时写库。"""
+        if self._engine.dialect.name != "postgresql":
+            return self._process_call(call)
+        # 会话锁覆盖完整外部调用；Web 和 CLI 同时提交也不会重复跑同一通。
+        lock_id = int.from_bytes(hashlib.sha256(call.source_call_key.encode()).digest()[:8], "big", signed=True)
+        with self._engine.connect() as lock_conn:
+            acquired = lock_conn.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": lock_id}).scalar()
+            lock_conn.commit()
+            if not acquired:
+                return self._build_skipped_result(call, error_code="TASK_ALREADY_RUNNING")
+            try:
+                return self._process_call(call)
+            finally:
+                try:
+                    lock_conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": lock_id})
+                    lock_conn.commit()
+                except Exception:
+                    lock_conn.invalidate()
+
+    def _process_call(self, call: CallRecord) -> ComplianceResult:
         start_wall = time.perf_counter()
         perf: dict = {k: None for k in PERF_KEYS}
 
@@ -110,7 +131,7 @@ class ComplianceTaskService:
         existing = self._tasks.get_completed_task(call.source_call_key)
         if existing is not None:
             logger.info("幂等跳过：已存在完成任务", extra=self._log_extra(call, "IDEMPOTENT"))
-            return self._build_skipped_result(call, "已存在完成任务")
+            return self._build_skipped_result(call, error_code="已存在完成任务")
 
         # 3. 创建 qc_task（ON CONFLICT 幂等）
         task_id = self._tasks.create_task(
@@ -225,8 +246,7 @@ class ComplianceTaskService:
             base.perf = perf
 
             # 12. 保存 result + rule_result（手册 #39/#40）
-            result_id = self._results.save_result(base, task_id)
-            self._results.save_rule_results(result_id, evaluations)
+            self._results.save_with_rules(base, task_id)
 
             # 13. 完成
             final_status = (

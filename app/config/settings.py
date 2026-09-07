@@ -47,7 +47,7 @@ class Settings:
 
         db = data.get("database", {})
         self.db_host = _resolve(db.get("host", "127.0.0.1"))
-        self.db_port = int(_resolve(db.get("port", "5432")))
+        self.db_port = int(_resolve(db.get("port", "5432")) or 5432)
         self.db_name = _resolve(db.get("name", ""))
         self.db_username = _resolve(db.get("username", ""))
         self.db_password = _resolve(db.get("password", ""))
@@ -87,7 +87,7 @@ class Settings:
         ))
 
         rec = data.get("recording", {})
-        self.recording_tmp_root = _resolve(rec.get("tmp_root", "/data/speech_qc/tmp"))
+        self.recording_tmp_root = _resolve(rec.get("tmp_root", str(PROJECT_ROOT / "temp" / "recordings")))
         self.recording_download_timeout_seconds = float(rec.get("download_timeout_seconds", 60))
         self.recording_max_retries = int(rec.get("max_retries", 2))
 

@@ -1,1 +1,3 @@
 # Memory Index
+## project — speech-compliance-system
+项目：营销通话话术合规质检系统（Speech Compliance System） 核心目标：自动对营销通话录音进行合规性检查，判断员工话术是否符合规范要求。 架构分层： - 入口层 (runners)：单条调试 (single.py) 和批量执行 (batch.py) - 服务层 (service...

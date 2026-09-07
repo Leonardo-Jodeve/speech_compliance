@@ -61,7 +61,12 @@ class TaskRepository:
         if existing is not None:
             # 非终态任务可刷新为 PENDING（终态 COMPLETED/SKIPPED/REVIEW_REQUIRED 不动）
             if existing["status"] not in (COMPLETED, REVIEW_REQUIRED, SKIPPED):
-                self.update_stage(existing["id"], PENDING, PENDING, retry_count=0)
+                with self._engine.begin() as conn:
+                    conn.execute(text(
+                        f"UPDATE {self._t('qc_task')} SET status=:status, current_stage=:status, "
+                        "retry_count=retry_count+1, error_code=NULL, error_message=NULL, "
+                        "started_at=NULL, finished_at=NULL WHERE id=:id"
+                    ), {"status": PENDING, "id": existing["id"]})
             return existing["id"]
 
         # 2) 不存在：INSERT（ON CONFLICT 仅作并发兜底）
