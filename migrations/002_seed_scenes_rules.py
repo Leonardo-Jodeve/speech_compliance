@@ -27,12 +27,49 @@ from sqlalchemy import create_engine, text  # noqa: E402
 from app.config.settings import load_config  # noqa: E402
 
 SEED_SCENES = [
-    {"source_scene_id": "90131206", "scene_name": "加价加约/续约",
-     "description": "加价加约/续约营销场景"},
-    {"source_scene_id": "99932000200014", "scene_name": "其他",
-     "description": "其他营销场景"},
-    {"source_scene_id": "99932000200059", "scene_name": "4升5,5改5",
-     "description": "4升5,5改5 场景"},
+    {"source_scene_id": "90131131", "scene_name": "单宽转融", "description": "单宽转融 场景"},
+    {"source_scene_id": "90131133", "scene_name": "加装天翼", "description": "加装天翼 场景"},
+    {"source_scene_id": "90131136", "scene_name": "单C转融", "description": "单C转融 场景"},
+    {"source_scene_id": "90131137", "scene_name": "同城宽带", "description": "同城宽带 场景"},
+    {"source_scene_id": "90131159", "scene_name": "天翼促活", "description": "天翼促活 场景"},
+    {"source_scene_id": "90131161", "scene_name": "宽带促活", "description": "宽带促活 场景"},
+    {"source_scene_id": "90131163", "scene_name": "iTV促活", "description": "iTV促活 场景"},
+    {"source_scene_id": "90131165", "scene_name": "权益促活", "description": "权益促活 场景"},
+    {"source_scene_id": "90131174", "scene_name": "欠费催缴", "description": "欠费催缴 场景"},
+    {"source_scene_id": "90131178", "scene_name": "关怀类动作", "description": "关怀类动作 场景"},
+    {"source_scene_id": "90131179", "scene_name": "积分活动", "description": "积分活动 场景"},
+    {"source_scene_id": "90131181", "scene_name": "星级服务", "description": "星级服务 场景"},
+    {"source_scene_id": "90131182", "scene_name": "服务提醒", "description": "服务提醒 场景"},
+    {"source_scene_id": "90131189", "scene_name": "全屋wifi", "description": "全屋wifi 场景"},
+    {"source_scene_id": "90131190", "scene_name": "天翼看家", "description": "天翼看家 场景"},
+    {"source_scene_id": "90131191", "scene_name": "全屋智能", "description": "全屋智能 场景"},
+    {"source_scene_id": "90131193", "scene_name": "4升5", "description": "4升5 场景"},
+    {"source_scene_id": "90131197", "scene_name": "流量叠加包销售", "description": "流量叠加包销售 场景"},
+    {"source_scene_id": "90131198", "scene_name": "权益及应用", "description": "权益及应用 场景"},
+    {"source_scene_id": "90131199", "scene_name": "宽带提速类", "description": "宽带提速类 场景"},
+    {"source_scene_id": "90131203", "scene_name": "包年宽带续约/续包", "description": "包年宽带续约/续包 场景"},
+    {"source_scene_id": "90131204", "scene_name": "预存加约", "description": "预存加约 场景"},
+    {"source_scene_id": "90131206", "scene_name": "加价加约/续约", "description": "加价加约/续约 场景"},
+    {"source_scene_id": "90131207", "scene_name": "欠费催缴", "description": "欠费催缴 场景"},
+    {"source_scene_id": "90131208", "scene_name": "天翼高危维系", "description": "天翼高危维系 场景"},
+    {"source_scene_id": "151320011", "scene_name": "满意度修复", "description": "满意度修复 场景"},
+    {"source_scene_id": "152320001", "scene_name": "宽带类活动", "description": "宽带类活动 场景"},
+    {"source_scene_id": "999320001", "scene_name": "其他", "description": "其他 场景"},
+    {"source_scene_id": "15032000900001", "scene_name": "融合移机", "description": "融合移机 场景"},
+    {"source_scene_id": "15032001000003", "scene_name": "其他咨询", "description": "其他咨询 场景"},
+    {"source_scene_id": "99932000200001", "scene_name": "新装天翼", "description": "新装天翼 场景"},
+    {"source_scene_id": "99932000200002", "scene_name": "新装宽带", "description": "新装宽带 场景"},
+    {"source_scene_id": "99932000200004", "scene_name": "新装智家", "description": "新装智家 场景"},
+    {"source_scene_id": "99932000200005", "scene_name": "5改5", "description": "5改5 场景"},
+    {"source_scene_id": "99932000200006", "scene_name": "其他", "description": "其他 场景"},
+    {"source_scene_id": "99932000200007", "scene_name": "拆机挽留", "description": "拆机挽留 场景"},
+    {"source_scene_id": "99932000200008", "scene_name": "低迁挽留", "description": "低迁挽留 场景"},
+    {"source_scene_id": "99932000200009", "scene_name": "换机", "description": "换机 场景"},
+    {"source_scene_id": "99932000200011", "scene_name": "联系电话整改/双微连接",
+     "description": "联系电话整改/双微连接 场景"},
+    {"source_scene_id": "99932000200013", "scene_name": "常规服务提醒", "description": "常规服务提醒 场景"},
+    {"source_scene_id": "99932000200014", "scene_name": "其他", "description": "其他 场景"},
+    {"source_scene_id": "99932000200028", "scene_name": "中屏促活", "description": "中屏促活 场景"},
 ]
 
 # 规则：rule_code 稳定唯一（手册 #16）
@@ -82,8 +119,8 @@ SEED_RULES = [
 # 场景 -> 规则关联
 SEED_SCENE_RULES = {
     "90131206": ["DISCOUNT_DISCOUNT_PERIOD", "NO_PERMANENT_DISCOUNT", "DISCLOSE_CONTRACT_PERIOD", "CONFIRM_CUSTOMER_INTENT"],
+    "15032001000003": ["NO_PERMANENT_DISCOUNT"],
     "99932000200014": ["NO_PERMANENT_DISCOUNT"],
-    "99932000200059": ["NO_PERMANENT_DISCOUNT"],
 }
 
 

@@ -10,7 +10,7 @@ const descriptions = {scenes:"维护业务场景信息，将源通话中的场�
 let toastTimer, callRequest = 0, adminRequest = 0, taskRequest = 0, detailRequest = 0;
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {...options, headers:{"Content-Type":"application/json", "X-QC-Request":"1", ...(options.headers || {})}});
+  const response = await fetch(path, {...options, headers:{"Content-Type":"application/json", "x-qc-request":"1", ...(options.headers || {})}});
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `请求失败（${response.status}）`);
   return data;
