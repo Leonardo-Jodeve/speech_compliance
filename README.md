@@ -1,13 +1,4 @@
----
-AIGC:
-  ContentProducer: '001191110102MAD55U9H0F10002'
-  ContentPropagator: '001191110102MAD55U9H0F10002'
-  Label: '1'
-  ProduceID: 'c66f3a1f-385f-4422-9ed3-48a9a410c279'
-  PropagateID: 'c66f3a1f-385f-4422-9ed3-48a9a410c279'
-  ReservedCode1: 'b830d925-9186-4a83-bdcc-2ddcc2495083'
-  ReservedCode2: 'b830d925-9186-4a83-bdcc-2ddcc2495083'
----
+
 
 # 营销通话话术合规质检系统
 
@@ -186,4 +177,3 @@ python -m pytest tests/ -v
 
 公网录音上传、员工上传、自建 ASR/LLM、GPU、销售分析、话术优化、A/B 实验、多用户权限、持久化分布式任务队列、强制重评与规则版本历史。
 
-> AI生成
