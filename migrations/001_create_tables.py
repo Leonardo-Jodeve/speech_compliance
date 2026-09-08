@@ -22,6 +22,15 @@ def build_ddl(schema: str) -> str:
     """构造完整 DDL 语句列表（每条以分号结尾，按 ; 分割执行）。"""
     s = schema
     raw = f"""
+DROP table  if exists public.qc_result CASCADE;
+DROP TABLE  if exists public.qc_rule CASCADE;
+DROP TABLE  if exists public.qc_rule_result CASCADE;
+DROP TABLE  if exists public.qc_scene CASCADE;
+DROP TABLE  if exists public.qc_scene_rule CASCADE;
+DROP TABLE  if exists public.qc_task CASCADE;
+DROP TABLE  if exists public.qc_transcript CASCADE;
+
+    
 CREATE TABLE IF NOT EXISTS {s}.qc_scene (
     id              BIGSERIAL PRIMARY KEY,
     source_scene_id TEXT  NOT NULL UNIQUE,

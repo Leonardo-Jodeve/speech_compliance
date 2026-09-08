@@ -7,6 +7,8 @@ from threading import Lock
 from time import monotonic
 from uuid import uuid4
 
+from app.domain.call import CallRecord, build_source_call_key
+
 
 class QueueError(ValueError):
     pass
@@ -72,6 +74,58 @@ class JobManager:
             update = {"state": "DONE", "outcome": result.overall_status.value}
         except Exception as exc:
             # 不把上游响应、数据库 DSN 或录音签名链接传给浏览器。
+            update = {"state": "FAILED", "error": type(exc).__name__}
+        with self.lock:
+            self.jobs[job_id]["items"][index].update(update)
+            self.active_keys.discard(call.source_call_key)
+
+    def rerun_task(self, task_id):
+        """重跑指定任务：从数据库读取原始通话信息重建 CallRecord，强制重新评判。
+
+        返回随机 job_id。
+        """
+        task = self.service._tasks.get_task_by_id(task_id)
+        if task is None:
+            raise QueueError("任务不存在")
+        source_call_key = task["source_call_key"]
+        with self.lock:
+            if source_call_key in self.active_keys:
+                raise QueueError("该通话正在排队或执行中，请等待当前任务完成")
+            if self.closed:
+                raise QueueError("服务正在关闭，请稍后重试")
+        # 从数据库记录重建 CallRecord（仅需评判所需字段）
+        call = CallRecord(
+            source_call_key=source_call_key,
+            order_id=task.get("order_id"),
+            scene_id=task.get("scene_id") or "",
+            scene_name=task.get("scene_name") or "",
+            seat_id=task.get("seat_id"),
+            seat_name=task.get("seat_name"),
+            recording_url=task.get("recording_url"),
+            call_result="接通",
+            talk_seconds=max(self.minimum, 1),  # 已评判过说明具备资格
+        )
+        with self.lock:
+            while len(self.jobs) >= 100:
+                finished = next((key for key, job in self.jobs.items() if all(i["state"] in ("DONE", "FAILED") for i in job["items"])), None)
+                if finished is None:
+                    raise QueueError("当前批次过多，请等待执行完成")
+                del self.jobs[finished]
+            job_id = uuid4().hex
+            items = [{"key": source_call_key, "order_id": call.order_id, "scene_name": call.scene_name,
+                      "seat_name": call.seat_name, "state": "QUEUED", "outcome": None, "error": None}]
+            self.jobs[job_id] = {"id": job_id, "created_at": datetime.now(timezone.utc).isoformat(), "items": items}
+            self.active_keys.add(source_call_key)
+        self.pool.submit(self._run_rerun, job_id, 0, call)
+        return job_id
+
+    def _run_rerun(self, job_id, index, call):
+        with self.lock:
+            self.jobs[job_id]["items"][index]["state"] = "RUNNING"
+        try:
+            result = self.service.process_call(call, force_rerun=True)
+            update = {"state": "DONE", "outcome": result.overall_status.value}
+        except Exception as exc:
             update = {"state": "FAILED", "error": type(exc).__name__}
         with self.lock:
             self.jobs[job_id]["items"][index].update(update)

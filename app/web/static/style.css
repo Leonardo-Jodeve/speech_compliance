@@ -3,3 +3,10 @@
 @media(max-width:1100px){.sidebar{width:190px;padding-left:12px;padding-right:12px}.shell{margin-left:190px}main{padding:28px 24px 0}.topbar{padding:0 24px}.filters{grid-template-columns:repeat(2,1fr)}.filter-actions{grid-column:1/-1}.filter-foot{flex-wrap:wrap;gap:10px}.metrics{gap:10px}.metrics article{padding:17px 12px;gap:10px}.metric-icon{width:32px;height:34px;font-size:18px}.page-tag{display:none}.metrics strong{font-size:24px}}
 @media(max-width:760px){.sidebar{position:static;width:100%;padding:14px 16px 10px}.brand{font-size:18px}.brand-icon{width:34px;height:36px}.brand-sub,.workspace-label,.nav-label,.sidebar-bottom,.nav-arrow{display:none}.sidebar nav{display:flex;gap:4px;overflow:auto;margin-top:13px}.nav-item{width:auto;white-space:nowrap;padding:9px;font-size:11px;margin:0}.nav-icon{font-size:15px;width:16px}.shell{margin-left:0}.topbar{height:51px;padding:0 18px}main{padding:24px 16px 0}h1{font-size:22px}.page-heading{margin-bottom:22px}.metrics{grid-template-columns:repeat(2,1fr)}.panel-heading{padding:17px;flex-wrap:wrap}.filters{padding:0 17px 17px;gap:13px}.run-bar{padding:16px;gap:15px}.run-bar p{line-height:2}.run-bar p span{margin:0 4px}.run-bar button{padding:10px 14px;white-space:nowrap}.main-footer{gap:15px;font-size:8px}.table-footer{padding:13px 16px}.section-title{flex-wrap:wrap;gap:12px}.job-item{flex-wrap:wrap}.report-columns{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}.toast{left:50%}.result-overview{flex-wrap:wrap}.description-cell{min-width:180px}.transcript{max-height:35vh}}
 .run-bar{position:sticky;bottom:16px;z-index:2;box-shadow:0 5px 20px #6653ce12}
+.bindings-layout{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;align-items:start}
+.bindings-left .table-wrap{max-height:520px;overflow-y:auto}
+.bindings-left .scene-row{cursor:pointer;transition:background .12s}
+.bindings-left .scene-row:hover{background:#f5f3ff}
+.bindings-left .scene-row.selected-row{background:#ede9fe;border-left:3px solid var(--primary)}
+.bindings-right .panel-heading{margin-bottom:0}
+@media(max-width:1100px){.bindings-layout{grid-template-columns:1fr}}

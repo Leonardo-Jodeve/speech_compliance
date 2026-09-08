@@ -90,10 +90,13 @@ class ComplianceTaskService:
 
     # ---------- 主流程 ----------
 
-    def process_call(self, call: CallRecord) -> ComplianceResult:
-        """处理单通通话（手册 #41）。返回完整结果，同时写库。"""
+    def process_call(self, call: CallRecord, *, force_rerun: bool = False) -> ComplianceResult:
+        """处理单通通话（手册 #41）。返回完整结果，同时写库。
+
+        force_rerun=True 时跳过幂等检查，用于重跑已评判记录。
+        """
         if self._engine.dialect.name != "postgresql":
-            return self._process_call(call)
+            return self._process_call(call, force_rerun=force_rerun)
         # 会话锁覆盖完整外部调用；Web 和 CLI 同时提交也不会重复跑同一通。
         lock_id = int.from_bytes(hashlib.sha256(call.source_call_key.encode()).digest()[:8], "big", signed=True)
         with self._engine.connect() as lock_conn:
@@ -102,7 +105,7 @@ class ComplianceTaskService:
             if not acquired:
                 return self._build_skipped_result(call, error_code="TASK_ALREADY_RUNNING")
             try:
-                return self._process_call(call)
+                return self._process_call(call, force_rerun=force_rerun)
             finally:
                 try:
                     lock_conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": lock_id})
@@ -110,7 +113,7 @@ class ComplianceTaskService:
                 except Exception:
                     lock_conn.invalidate()
 
-    def _process_call(self, call: CallRecord) -> ComplianceResult:
+    def _process_call(self, call: CallRecord, *, force_rerun: bool = False) -> ComplianceResult:
         start_wall = time.perf_counter()
         perf: dict = {k: None for k in PERF_KEYS}
 
@@ -128,25 +131,35 @@ class ComplianceTaskService:
             )
 
         # 2. 幂等检查（手册 #36/#41，Test 12）
+        #    force_rerun=True 时跳过幂等检查，重置已有任务后重新执行。
         existing = self._tasks.get_completed_task(call.source_call_key)
         if existing is not None:
-            logger.info("幂等跳过：已存在完成任务", extra=self._log_extra(call, "IDEMPOTENT"))
-            return self._build_skipped_result(call, error_code="已存在完成任务")
-
-        # 3. 创建 qc_task（ON CONFLICT 幂等）
-        task_id = self._tasks.create_task(
-            source_call_key=call.source_call_key,
-            order_id=call.order_id,
-            scene_id=call.scene_id,
-            scene_name=call.scene_name,
-            seat_id=call.seat_id,
-            seat_name=call.seat_name,
-            recording_url=call.recording_url,
-        )
-        if task_id is None:
-            raise RuntimeError("创建 qc_task 失败")
-        extra = self._log_extra(call, "TASK", task_id)
-        logger.info("任务创建 task=%s", task_id, extra=extra)
+            if not force_rerun:
+                logger.info("幂等跳过：已存在完成任务", extra=self._log_extra(call, "IDEMPOTENT"))
+                return self._build_skipped_result(call, error_code="已存在完成任务")
+            # 重跑模式：重置已有终态任务
+            logger.info("强制重跑：重置已有任务 task=%s", existing["id"], extra=self._log_extra(call, "RERUN"))
+            task_id = self._tasks.reset_task(existing["id"])
+            if task_id is None:
+                raise RuntimeError("重跑失败：任务重置失败")
+            task_id = task_id["id"]
+            extra = self._log_extra_with_task(call, "RERUN", task_id)
+            logger.info("任务已重置 task=%s", task_id, extra=extra)
+        else:
+            # 3. 创建 qc_task（ON CONFLICT 幂等）
+            task_id = self._tasks.create_task(
+                source_call_key=call.source_call_key,
+                order_id=call.order_id,
+                scene_id=call.scene_id,
+                scene_name=call.scene_name,
+                seat_id=call.seat_id,
+                seat_name=call.seat_name,
+                recording_url=call.recording_url,
+            )
+            if task_id is None:
+                raise RuntimeError("创建 qc_task 失败")
+            extra = self._log_extra(call, "TASK", task_id)
+            logger.info("任务创建 task=%s", task_id, extra=extra)
 
         try:
             # 4. 下载录音（手册 #23）
@@ -285,6 +298,10 @@ class ComplianceTaskService:
             "scene_id": call.scene_id,
             "stage": stage,
         }
+
+    @staticmethod
+    def _log_extra_with_task(call: CallRecord, stage: str, task_id: int) -> dict:
+        return ComplianceTaskService._log_extra(call, stage, task_id)
 
     def _build_skipped_result(
         self,

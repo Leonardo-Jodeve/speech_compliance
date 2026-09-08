@@ -158,6 +158,14 @@ def create_app(runtime=None):
             raise HTTPException(404, "记录已不存在")
         return {"deleted": True}
 
+    @app.get("/api/admin/scenes/{scene_id}/bindings")
+    def list_scene_bindings(scene_id: int):
+        """查询指定场景下的全部规则关联（不启用分页，适合场景维度配置页）。"""
+        try:
+            return rt().repo.list_bindings_for_scene(scene_id)
+        except ConflictError as exc:
+            raise HTTPException(404, str(exc)) from None
+
     @app.get("/api/calls")
     def query_calls(start: date, end: date, scene: str = Query("", max_length=64), seat: str = Query("", max_length=64),
                     page: int = Query(1, ge=1, le=10000), size: int = Query(30, ge=1, le=100), only_qualifiable: bool = True):
@@ -204,6 +212,21 @@ def create_app(runtime=None):
         if detail is None:
             raise HTTPException(404, "任务不存在")
         return detail
+
+    @app.post("/api/tasks/{task_id}/rerun", status_code=202)
+    def rerun_task(task_id: int):
+        state = rt()
+        # 确认任务存在
+        detail = state.repo.task_detail(task_id)
+        if detail is None:
+            raise HTTPException(404, "任务不存在")
+        task = detail["task"]
+        if task["status"] not in ("COMPLETED", "REVIEW_REQUIRED", "SKIPPED", "FAILED"):
+            raise HTTPException(409, "任务正在执行中，无法重跑")
+        try:
+            return {"id": state.jobs.rerun_task(task_id)}
+        except QueueError as exc:
+            raise HTTPException(409, str(exc)) from None
 
     @app.get("/")
     def index():

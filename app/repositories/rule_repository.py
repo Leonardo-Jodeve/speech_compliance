@@ -114,7 +114,33 @@ class RuleRepository:
         - rule.effective_from <= call_time；
         - rule.effective_to IS NULL 或 > call_time；
         - 通过 qc_scene_rule 关联。
+        - act_scene_id 可能含逗号分隔的多个场景 ID（违反 1NF），
+          此处自动拆分并对所有场景的规则取并集去重。
         """
+        scene_ids = _split_scene_ids(scene_id)
+        ct = call_time or _dt.datetime.now()
+        rules: list[ComplianceRule] = []
+        seen_codes: set[str] = set()
+        for sid in scene_ids:
+            rows = self._query_rules_for_scene(sid, ct)
+            for r in rows:
+                rule = self._to_rule(r)
+                if rule.rule_code not in seen_codes:
+                    seen_codes.add(rule.rule_code)
+                    rules.append(rule)
+        rules.sort(key=lambda r: r.rule_code)
+        logger.info(
+            "get_rules_for_call scene=%s scenes=%d rules=%s", scene_id, len(scene_ids), len(rules),
+            extra={"task_id": None, "source_call_key": None, "scene_id": str(scene_id), "stage": "RULES"},
+        )
+        return rules
+
+    def _query_rules_for_scene(
+        self,
+        scene_id: str,
+        call_time: _dt.datetime,
+    ) -> list:
+        """查询单个 scene_id 对应的有效规则行。"""
         sql = text(
             f"""
             SELECT r.id, r.rule_code, r.rule_name, r.rule_type, r.description,
@@ -136,17 +162,10 @@ class RuleRepository:
         )
         params: dict = {
             "scene_id": str(scene_id),
-            "call_time": call_time or _dt.datetime.now(),
+            "call_time": call_time,
         }
         with self._engine.connect() as conn:
-            rows = conn.execute(sql, params).mappings().all()
-
-        rules = [self._to_rule(r) for r in rows]
-        logger.info(
-            "get_rules_for_call scene=%s rules=%s", scene_id, len(rules),
-            extra={"task_id": None, "source_call_key": None, "scene_id": str(scene_id), "stage": "RULES"},
-        )
-        return rules
+            return conn.execute(sql, params).mappings().all()
 
     def list_rules(self) -> list[ComplianceRule]:
         sql = text(
@@ -179,6 +198,23 @@ class RuleRepository:
             revision_id=r["revision_id"],
             content_hash=r["content_hash"],
         )
+
+
+def _split_scene_ids(scene_id: str) -> list[str]:
+    """将逗号分隔的 scene_id 拆分为列表，去空白、去空、去重（保序）。
+
+    例如 "99932000200008,99932000200007" → ["99932000200008", "99932000200007"]
+    "90131206" → ["90131206"]
+    "" → []
+    """
+    parts = [p.strip() for p in str(scene_id).split(",") if p.strip()]
+    seen: set[str] = set()
+    result: list[str] = []
+    for p in parts:
+        if p not in seen:
+            seen.add(p)
+            result.append(p)
+    return result
 
 
 def content_hash_of(rule: ComplianceRule) -> str:

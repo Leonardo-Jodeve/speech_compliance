@@ -107,10 +107,10 @@ SEED_RULES = [
     {
         "rule_code": "CONFIRM_CUSTOMER_INTENT",
         "rule_name": "确认客户办理意愿",
-        "rule_type": "REQUIRED",
-        "description": "员工应确认客户明确同意办理该业务",
+        "rule_type": "CONDITIONAL_REQUIRED",
+        "description": "员工应在办理业务之前确认客户明确同意办理该业务",
         "standard_expression": "确认您需要办理该业务，对吗？",
-        "judge_instruction": "员工应明确得到客户同意办理的确认。若客户未同意或含糊，判断为 FAIL。",
+        "judge_instruction": "如果场景是引导用户办理业务，员工应明确得到客户同意办理的确认。若办理前没有询问用户是否同意的动作则判断为FAIL。这一项客户同意与否无所谓，主要是员工要有询问客户是否同意的意识",
         "severity": "HIGH",
         "weight": 15,
     },

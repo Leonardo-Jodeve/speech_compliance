@@ -177,3 +177,34 @@ class TaskRepository:
         with self._engine.connect() as conn:
             row = conn.execute(sql, {"key": source_call_key}).mappings().first()
         return dict(row) if row else None
+
+    def reset_task(self, task_id: int) -> dict | None:
+        """将任务重置为 PENDING 以支持重跑：清空终态、错误信息、时间戳。
+
+        返回重置后任务的基本信息（id, source_call_key, recording_url 等），
+        若任务不存在返回 None。
+        """
+        sql = text(
+            f"UPDATE {self._t('qc_task')} SET "
+            "status = :status, current_stage = :stage, "
+            "retry_count = retry_count + 1, "
+            "error_code = NULL, error_message = NULL, "
+            "started_at = NULL, finished_at = NULL "
+            "WHERE id = :id AND status IN ('COMPLETED','REVIEW_REQUIRED','SKIPPED','FAILED') "
+            "RETURNING id, source_call_key, order_id, scene_id, scene_name, "
+            "seat_id, seat_name, recording_url"
+        )
+        with self._engine.begin() as conn:
+            row = conn.execute(sql, {
+                "id": task_id, "status": PENDING, "stage": PENDING,
+            }).mappings().first()
+        return dict(row) if row else None
+
+    def get_task_by_id(self, task_id: int) -> dict | None:
+        """按主键查询任务，返回全部字段。"""
+        sql = text(
+            f"SELECT * FROM {self._t('qc_task')} WHERE id = :id"
+        )
+        with self._engine.connect() as conn:
+            row = conn.execute(sql, {"id": task_id}).mappings().first()
+        return dict(row) if row else None

@@ -122,3 +122,17 @@ class AdminRepository:
         stmt = text(f"SELECT source_call_key, id, status, current_stage, error_code FROM {self.table('qc_task')} WHERE source_call_key IN :keys").bindparams(bindparam("keys", expanding=True))
         with self.engine.connect() as conn:
             return {r["source_call_key"]: dict(r) for r in conn.execute(stmt, {"keys": list(keys)}).mappings()}
+
+    def list_bindings_for_scene(self, scene_id):
+        """查询指定场景下的全部规则关联（不分页）。"""
+        table = self.table(TABLES["bindings"])
+        source = (f"{table} t JOIN {self.table('qc_scene')} s ON s.id=t.scene_id "
+                  f"JOIN {self.table('qc_rule')} r ON r.id=t.rule_id")
+        columns = ("t.*, s.source_scene_id, s.scene_name, "
+                   "r.rule_code, r.rule_name, r.rule_type, r.severity, "
+                   "r.weight AS default_weight, r.enabled AS rule_enabled")
+        with self.engine.connect() as conn:
+            rows = conn.execute(text(
+                f"SELECT {columns} FROM {source} WHERE t.scene_id=:sid ORDER BY r.rule_code"
+            ), {"sid": scene_id}).mappings().all()
+        return {"items": [self.row(r) for r in rows]}
